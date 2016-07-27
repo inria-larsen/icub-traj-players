@@ -1,0 +1,59 @@
+# Copyright: 2016 INRIA, Team LARSEN
+# Author: Serena Ivaldi
+# CopyPolicy: Released under the terms of the GNU GPL v2.0.
+# 
+#
+
+cmake_minimum_required(VERSION 2.8.9)
+
+set(PROJECTNAME iCubPlayers)
+
+project(${PROJECTNAME})
+
+find_package(YARP REQUIRED)
+find_package(ICUB REQUIRED)
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${YARP_MODULE_PATH})
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ICUB_MODULE_PATH})
+include(iCubOptions)
+
+include_directories(${ICUB_INCLUDE_DIRS} ${YARP_INCLUDE_DIRS})
+
+## this is for testing only, please ignore if you are reading tutorials	
+include(CTest)
+### end test specific code
+
+# go by subdirectories
+add_subdirectory(upperBodyPlayer)
+
+#set(ICUB_USE_GSL "ON" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_GLUT "ON" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_OpenGL "ON" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_ODE "ON" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_SDL "ON" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_GtkMM "ON" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_GtkPlus "ON" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_Gthread "ON" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_ACE "ON" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_IPOPT "ON" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_IPP "OFF" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_OpenCV "ON" CACHE BOOL "dependency flag" FORCE)
+#set(ICUB_USE_Qt3 "ON" CACHE BOOL "dependency flag" FORCE)
+
+#if(ICUB_USE_IPOPT)
+#    find_package(IPOPT QUIET)
+#    message(STATUS "Testing IPOPT dependent code")
+#
+#    add_executable(test_ipopt smoke-tests/ipopt.cpp)
+#    target_link_libraries(test_ipopt ${YARP_LIBRARIES} iKin)
+#
+#    ### execute tests
+#    add_test(NAME test_ipopt COMMAND test_ipopt)
+#    add_subdirectory(iKin)
+#    add_subdirectory(optimization)
+#else()
+#    message(STATUS "IPOPT not found")
+#endif()
+
+###################### end of test specific code
+
