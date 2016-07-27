@@ -41,7 +41,7 @@ int nbIter;
 //---------------------------------------------------------
 // open drivers with compliance (real robot)
 //---------------------------------------------------------
-bool openDriversArm(Property &options, string robot, string part, PolyDriver *&pd, IPositionControl *&ipos, IEncoders *&ienc, IControlMode2 *&imode, IImpedanceControl *&iimp, ITorqueControl *&itrq)
+bool openDriversArm(Property &options, string robot, string part, PolyDriver *&pd, IPositionControl *&ipos, IPositionDirect *&iposd, IEncoders *&ienc, IControlMode2 *&imode, IImpedanceControl *&iimp, ITorqueControl *&itrq)
 {
 	// open the device drivers
 	options.put("device","remote_controlboard");
@@ -59,7 +59,7 @@ bool openDriversArm(Property &options, string robot, string part, PolyDriver *&p
         printf("%s", Drivers::factory().toString().c_str());
         return false;	
 	}
-	if(!pd->view(imode) || !pd->view(ienc) || !pd->view(ipos) || !pd->view(iimp) || !pd->view(itrq))
+	if(!pd->view(imode) || !pd->view(ienc) || !pd->view(ipos) || !(pd->view(iposd)) || !pd->view(iimp) || !pd->view(itrq))
 	{
 		cout<<"Problems acquiring interfaces for "<<part<<endl;
 		return false;
@@ -303,9 +303,32 @@ int main(int argc, char *argv[])
     ITorqueControl *itrq_LA, *itrq_RA, *itrq_T; 
 	
 	if(robotName=="icub")
-	{
-		cout <<"Not opening the drivers for the real iCub for the moment"<<endl;
-		return -1;
+	{	
+		dd_LA=new PolyDriver;
+		dd_RA=new PolyDriver;
+		dd_T=new PolyDriver;
+		if(verbosity>=1)  cout<<"drivers created"<<endl;
+	
+		if(verbosity>=1) cout<<"** Opening left arm drivers"<<endl;
+		if(!openDriversArm(options_LA, robotName, "left_arm", dd_LA, pos_LA, posd_LA, encs_LA, ictrl_LA, iimp_LA, itrq_LA))
+		{
+			cout<<"Error opening left arm"<<endl;
+			return -1;
+		}
+		
+		if(verbosity>=1) cout<<"** Opening right arm drivers"<<endl;
+		if(!openDriversArm(options_RA, robotName, "right_arm", dd_RA, pos_RA, posd_RA, encs_RA, ictrl_RA, iimp_RA, itrq_RA))
+		{
+			cout<<"Error opening right arm"<<endl;
+			return -1;
+		}
+		
+		if(verbosity>=1) cout<<"** Opening torso drivers"<<endl;
+		if(!openDriversArm(options_T, robotName, "torso", dd_T, pos_T, posd_T, encs_T, ictrl_T, iimp_T, itrq_T))
+		{
+			cout<<"Error opening left arm"<<endl;
+			return -1;
+		}
 	}
 	else
 	{
