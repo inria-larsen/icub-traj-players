@@ -129,6 +129,8 @@ bool loadFile (string &filename, Matrix &q_RA, Matrix &q_LA, Matrix &q_T, Matrix
 	q_LA.resize(nbIter,nJointsArm); q_LA.zero();
 	q_T.resize(nbIter,nJointsTorso); q_T.zero();
 	timestamps.resize(nbIter,1); timestamps.zero();
+	
+	Vector base(7);
 
 	// reading the trajectory from the file
 	for (int c=0; c<nbIter; c++)
@@ -137,7 +139,18 @@ bool loadFile (string &filename, Matrix &q_RA, Matrix &q_LA, Matrix &q_T, Matrix
 		getline (inputFile, l);
 		stringstream line;
 		line << l;
-		line >> timestamps[c][0];
+		//line >> timestamps[c][0];
+		
+		// the floating base
+		line>>base[0];
+		line>>base[1];
+		line>>base[2];
+		line>>base[3];
+		line>>base[4];
+		line>>base[5];
+		line>>base[6];
+		
+		
 		//torso_yaw
 		line >> q_T[c][0];
 		//l_elbow
@@ -180,7 +193,61 @@ bool loadFile (string &filename, Matrix &q_RA, Matrix &q_LA, Matrix &q_T, Matrix
 }
 
 
+//---------------------------------------------------------
+// read the trajectory from a file
+//---------------------------------------------------------
+int safety_check(Vector &command_RA, Vector &command_LA, Vector &command_T)
+{
+	int violations=0;
+	
+	Vector max_RA(7);
+	Vector max_LA(7);
+	Vector max_T(3);
+	Vector min_RA(7);
+	Vector min_LA(7);
+	Vector min_T(3);
+	
+	max_RA[0]=6; 	min_RA[0]=-85;
+	max_RA[1]=80; 	min_RA[1]=15;
+	max_RA[2]=78; 	min_RA[2]=-15;
+	max_RA[3]=85; 	min_RA[3]=15;
+	max_RA[4]=60; 	min_RA[4]=-70;
+	max_RA[5]=0; 	min_RA[5]=-70;
+	max_RA[6]=30; 	min_RA[6]=-10;
+	
+	max_LA[0]=6; 	min_LA[0]=-85;
+	max_LA[1]=80; 	min_LA[1]=15;
+	max_LA[2]=78; 	min_LA[2]=-15;
+	max_LA[3]=85; 	min_LA[3]=15;
+	max_LA[4]=60; 	min_LA[4]=-70;
+	max_LA[5]=0; 	min_LA[5]=-70;
+	max_LA[6]=30; 	min_LA[6]=-10;
+	
+	max_T[0]=25; 	min_T[0]=-25;
+	max_T[1]=8; 	min_T[1]=-8;
+	max_T[2]=20; 	min_T[2]=-10;
+	
+	// arms
+	for(int i=0; i<7;i++)
+	{
+		if(command_RA[i]>max_RA[i]) {  command_RA[i]=max_RA[i];	cout<<"#### max RIGHT_ARM "<<i<<endl; violations++;}
+		if(command_RA[i]<min_RA[i]) {  command_RA[i]=min_RA[i];	cout<<"#### min RIGHT_ARM "<<i<<endl; violations++;}
+	
+		if(command_LA[i]>max_LA[i]) {  command_LA[i]=max_LA[i];	cout<<"#### max LEFT_ARM "<<i<<endl; violations++;}
+		if(command_LA[i]<min_LA[i]) {  command_LA[i]=min_LA[i];	cout<<"#### min LEFT_ARM "<<i<<endl; violations++;}
+	
+	}
+	
+	// torso
+	for(int i=0; i<3;i++)
+	{
+		if(command_T[i]>max_T[i]) {  command_T[i]=max_T[i];	cout<<"#### max TORSO "<<i<<endl; violations++;}
+		if(command_T[i]<min_T[i]) {  command_T[i]=min_T[i];	cout<<"#### min TORSO "<<i<<endl; violations++;}
+	
+	}
 
+	return violations;
+}
 
 //==============================================================
 //
@@ -197,7 +264,8 @@ int main(int argc, char *argv[])
     string fileName;
     int startingPoint=0;
     
-    
+    int jointLimitsViolations=0;
+    int totalJointsLimitsViolations=0;
     
     //--------------- CONFIG  --------------
     
@@ -442,6 +510,23 @@ int main(int argc, char *argv[])
     for(i=0; i<nJointsArm; i++) command_LA[i] = q_LA[startingPoint][i];
     for(i=0; i<nJointsTorso; i++) command_T[i] = q_T[startingPoint][i];
     
+    jointLimitsViolations = safety_check(command_RA, command_LA, command_T);
+    
+    if(jointLimitsViolations==0)
+		cout<<" *** FEASIBLE STARTING POSITION *** "<<endl;
+	else
+	{
+		cout<<" *** INFEASIBLE STARTING POSITION *** "<<endl
+			<<"\nThe initial position violates the joint limits x"<<jointLimitsViolations<<" times"<<endl
+			<<"CANNOT PROCEED"<<endl;
+			
+		cout << "Closing drivers" << endl;
+		if(dd_RA) {delete dd_RA; dd_RA=0; }
+		if(dd_LA) {delete dd_LA; dd_LA=0; }
+		if(dd_T) {delete dd_T; dd_T=0;}
+		return 0;
+	}
+    
 	cout<<"Move the robot to the initial position: "<<endl
 		<<" right arm : "<<command_RA.toString()<<endl
 		<<" left arm : "<<command_LA.toString()<<endl
@@ -517,18 +602,22 @@ int main(int argc, char *argv[])
 		for(i=0; i<nJointsArm; i++) command_LA[i] = q_LA[t][i];
 		for(i=0; i<nJointsTorso; i++) command_T[i] = q_T[t][i];
 		
-		if(verbosity>=1)   printf ("Moving : \r%d / %d", t, nbIter);
+		jointLimitsViolations = safety_check(command_RA, command_LA, command_T);
+		totalJointsLimitsViolations += jointLimitsViolations;
+		
+		if(verbosity>=1)   printf ("Moving : \r%d / %d  - violating %d", t, nbIter, jointLimitsViolations);
     
 		posd_T->setPositions(command_T.data());
 		posd_RA->setPositions(command_RA.data());
 		posd_LA->setPositions(command_LA.data());
-		Time::delay(0.01);
+		Time::delay(0.001);
 		
 	}
 	
 	Time::delay(1.0);
 	
-	cout<<"******  FINISHED! ****** "<<endl;
+	cout<<"\n******  FINISHED! ****** "<<endl
+		<<"\nYou violated the joints limits x"<<totalJointsLimitsViolations<<" times"<<endl;;
 	
 	//go back to a normal position mode
 	for(int j=0; j<nJointsArm; j++) 
