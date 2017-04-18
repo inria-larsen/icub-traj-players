@@ -207,6 +207,7 @@ int safety_check(Vector &command_RA, Vector &command_LA, Vector &command_T)
 	Vector min_LA(7);
 	Vector min_T(3);
 	
+	//max and min values for all the joints of the arms
 	max_RA[0]=6; 	min_RA[0]=-85;
 	max_RA[1]=80; 	min_RA[1]=15;
 	max_RA[2]=78; 	min_RA[2]=-15;
@@ -580,22 +581,72 @@ int main(int argc, char *argv[])
 		return 0;		
 	}
 	
+	//FIX increase elbow velocity (to check)
+	//command_RA[3] = 10.0;
+	//command_LA[3] = 10.0;
 	
 	//---------------  2) play trajectory --------------
 	
 	cout<<"******  MOVING! ****** "<<endl;
 	
 	Time::delay(1.0);
-	
+	bool cmode=true;
+	bool notpossible=false;
+
+/*	//debug
 	//first set the direct position mode
 	for(int j=0; j<nJointsArm; j++) 
 	{
-		ictrl_LA->setControlMode(j,VOCAB_CM_POSITION_DIRECT);
-		ictrl_RA->setControlMode(j,VOCAB_CM_POSITION_DIRECT);
+		cmode=ictrl_LA->setControlMode(j,VOCAB_CM_POSITION_DIRECT);
+		
+		if(cmode==false)
+		{
+			ictrl_LA->setControlMode(j,VOCAB_CM_POSITION);
+			cout<<"Left arm: joint "<<j<<" cannot change direct position"<<endl;
+			notpossible=true;
+		}
+				
+		cmode=ictrl_RA->setControlMode(j,VOCAB_CM_POSITION_DIRECT);
+		
+		if(cmode==false)
+		{
+			ictrl_RA->setControlMode(j,VOCAB_CM_POSITION);
+			cout<<"Right arm: joint "<<j<<" cannot change direct position"<<endl;
+			notpossible=true;
+		}
+			
 	}
 	for(int j=0; j<nJointsTorso; j++) 
-		ictrl_T->setControlMode(j,VOCAB_CM_POSITION_DIRECT);	
-	
+	{
+			cmode=ictrl_T->setControlMode(j,VOCAB_CM_POSITION_DIRECT);	
+			
+			if(cmode==false)
+			{
+				ictrl_T->setControlMode(j,VOCAB_CM_POSITION);
+				cout<<"Torso: joint "<<j<<" cannot change direct position"<<endl;
+				notpossible=true;
+			}
+			
+	}
+		
+		//// if there is errors in the direct mode, do not play the trajectory
+		
+		if(notpossible == true)
+		{
+			cout << "Closing drivers" << endl;
+			if(dd_RA) {delete dd_RA; dd_RA=0; }
+			if(dd_LA) {delete dd_LA; dd_LA=0; }
+			if(dd_T) {delete dd_T; dd_T=0;}
+			return 0;		
+		}
+		else
+		{
+			cout<<"**** direct position possible! ****"<<endl;
+		}
+	*/
+		
+		//// ok you can play
+	/* //debug
 	for(int t=startingPoint; t<nbIter; t++)
 	{
 		for(i=0; i<nJointsArm; i++) command_RA[i] = q_RA[t][i];
@@ -606,11 +657,46 @@ int main(int argc, char *argv[])
 		totalJointsLimitsViolations += jointLimitsViolations;
 		
 		if(verbosity>=1)   printf ("Moving : \r%d / %d  - violating %d", t, nbIter, jointLimitsViolations);
+    	
+		pos_T->positionMove(command_T.data());
+		pos_RA->positionMove(command_RA.data());
+		pos_LA->positionMove(command_LA.data());
     
-		posd_T->setPositions(command_T.data());
-		posd_RA->setPositions(command_RA.data());
-		posd_LA->setPositions(command_LA.data());
-		Time::delay(0.001);
+		//posd_T->setPositions(command_T.data());
+		//posd_RA->setPositions(command_RA.data());
+		//posd_LA->setPositions(command_LA.data());
+	
+		//10ms
+		Time::delay(0.01);
+		//1ms 
+		//Time::delay(0.001);
+		
+	}*/
+	
+		for(int t=startingPoint; t<nbIter; t+=6)
+	{
+		for(i=0; i<nJointsArm; i++) command_RA[i] = q_RA[t][i];
+		for(i=0; i<nJointsArm; i++) command_LA[i] = q_LA[t][i];
+		for(i=0; i<nJointsTorso; i++) command_T[i] = q_T[t][i];
+		
+		jointLimitsViolations = safety_check(command_RA, command_LA, command_T);
+		totalJointsLimitsViolations += jointLimitsViolations;
+		
+		if(verbosity>=1)   printf ("Moving : \r%d / %d  - violating %d", t, nbIter, jointLimitsViolations);
+    	
+		pos_T->positionMove(command_T.data());
+		pos_RA->positionMove(command_RA.data());
+		pos_LA->positionMove(command_LA.data());
+    
+		//debug
+		//posd_T->setPositions(command_T.data());
+		//posd_RA->setPositions(command_RA.data());
+		//posd_LA->setPositions(command_LA.data());
+	
+		//10ms
+		Time::delay(0.01);
+		//1ms 
+		//Time::delay(0.001);
 		
 	}
 	
@@ -618,7 +704,8 @@ int main(int argc, char *argv[])
 	
 	cout<<"\n******  FINISHED! ****** "<<endl
 		<<"\nYou violated the joints limits x"<<totalJointsLimitsViolations<<" times"<<endl;;
-	
+
+/*	//debug
 	//go back to a normal position mode
 	for(int j=0; j<nJointsArm; j++) 
 	{
@@ -627,6 +714,7 @@ int main(int argc, char *argv[])
 	}
 	for(int j=0; j<nJointsTorso; j++) 
 		ictrl_T->setControlMode(j,VOCAB_CM_POSITION);	
+*/
 	
 	
 	//---------------  CLOSING --------------
